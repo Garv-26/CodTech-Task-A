@@ -1,0 +1,51 @@
+1. Entity (Expense.kt)
+@Entity(tableName = "expenses")
+data class Expense(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val amount: Double,
+    val category: String,
+    val date: Long,
+    val description: String?
+)
+2. DAO
+@Dao
+interface ExpenseDao {
+    @Insert
+    suspend fun insertExpense(expense: Expense)
+
+    @Query("SELECT * FROM expenses ORDER BY date DESC")
+    fun getAllExpenses(): LiveData<List<Expense>>
+
+    @Query("SELECT SUM(amount) FROM expenses WHERE category = :category")
+    suspend fun getTotalByCategory(category: String): Double
+}
+3. Database
+@Database(entities = [Expense::class], version = 1)
+abstract class ExpenseDatabase : RoomDatabase() {
+    abstract fun expenseDao(): ExpenseDao
+}
+4. Repository
+class ExpenseRepository(private val dao: ExpenseDao) {
+    val allExpenses = dao.getAllExpenses()
+    suspend fun insert(expense: Expense) = dao.insertExpense(expense)
+}
+5. ViewModel
+class ExpenseViewModel(application: Application) : AndroidViewModel(application) {
+    private val repo: ExpenseRepository
+    val allExpenses: LiveData<List<Expense>>
+
+    init {
+        val dao = ExpenseDatabase.getDatabase(application).expenseDao()
+        repo = ExpenseRepository(dao)
+        allExpenses = repo.allExpenses
+    }
+
+    fun insert(expense: Expense) = viewModelScope.launch {
+        repo.insert(expense)
+    }
+}
+6. MPAndroidChart Integration
+Use:
+implementation 'com.github.PhilJay:MPAndroidChart:v3.1.0'
+Then bind data to pie/bar chart with PieDataSet or BarDataSet.
+
